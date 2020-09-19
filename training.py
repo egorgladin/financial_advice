@@ -1,33 +1,30 @@
+"""
+Recommendation of merchants to bank's customers via latent semantic search.
+
+GitHub: https://github.com/egorgladin/financial_advice
+"""
+
 import numpy as np
 import scipy.sparse as spsp
 import scipy.sparse.linalg as spsplin
-import random
 
-data_matrix = spsp.load_npz("data_matrix.npz")
+def train_test_split(data_matrix, nb_nonzero, test_sz):
+    nonzero_rows = np.argwhere(data_matrix.getnnz(axis=1) >= nb_nonzero)[:, 0]
+    test_mat = data_matrix[nonzero_rows[:test_sz]]
+    train_mat1 = data_matrix[data_matrix.getnnz(axis=1) < nb_nonzero]
+    train_mat2 = data_matrix[nonzero_rows[test_sz:]]
+    train_mat = spsp.vstack([train_mat1, train_mat2])
+    return train_mat, test_mat
 
-nb_nonzero = 20
-nonzero_rows = np.argwhere(data_matrix.getnnz(axis=1) >= nb_nonzero)[:, 0]
 
-test_sz = 200
-test_mat = data_matrix[nonzero_rows[:test_sz]]
-
-train_mat1 = data_matrix[data_matrix.getnnz(axis=1) < nb_nonzero]
-train_mat2 = data_matrix[nonzero_rows[test_sz:]]
-train_mat = spsp.vstack([train_mat1, train_mat2])
-print(f"Number of clients in train set: {train_mat.shape[0]}", \
-      f"\nNumber of clients in train set: {test_mat.shape[0]}")
-
-def train(rank, nb_favorite, train_mat, test_mat, mode, top_k):
+def train(rank, nb_favorite, train_mat, test_mat, top_k):
     _, S, Vt = spsplin.svds(train_mat, k=rank, return_singular_vectors='vh')
     top_k_precisions = []
     for client in test_mat:
         client_spendings = client.toarray()[0]
         top_spendings = np.argsort(-client_spendings)[:nb_favorite]
         correlation = Vt.T @ Vt[:, top_spendings]
-        if mode == 'sum':
-            score = correlation.sum(axis=1)
-        elif mode == 'dot':
-            score = correlation @ client_spendings[top_spendings]
+        score = correlation.sum(axis=1)
         top_merchants = np.argsort(-score)
         
         precision = 0.
@@ -42,29 +39,16 @@ def train(rank, nb_favorite, train_mat, test_mat, mode, top_k):
         top_k_precisions.append(precision)
     return sum(top_k_precisions) / len(top_k_precisions)
 
-#rank = 3
-#nb_favorite = 5
-#mode = 'sum'
-#top_k = 3
 
-ranks = [i for i in range(3, 15, 2)]
-nb_favorites = [i for i in range(3, 6)]
-modes = ['sum', 'dot']
-top_ks = [3, 5]
+data_matrix = spsp.load_npz("data_matrix.npz")
+nb_nonzero = 20
+test_sz = 200
+train_mat, test_mat = train_test_split(data_matrix, nb_nonzero, test_sz)
 
-it = 1
-best = [0, None]
-for rank in ranks:
-    for nb_favorite in nb_favorites:
-        for mode in modes:
-            for top_k in top_ks:
-                if it % 10 == 0:
-                    print(f"Iteration {it}/{len(ranks) * len(nb_favorites) * len(modes) * len(top_ks)}")
-                precision = train(rank, nb_favorite, train_mat, test_mat, mode, top_k)
-                if precision > best[0]:
-                    print("Best precision:", precision)
-                    best[0] = precision
-                    best[1] = (rank, nb_favorite, mode, top_k)
-                it += 1
-print(best)
+rank = 3
+nb_favorite = 5
+top_k = 3
+precision = train(rank, nb_favorite, train_mat, test_mat, top_k)
+
+print(f"Test precision @top{top_k} is {round(precision, 3)}")
 
