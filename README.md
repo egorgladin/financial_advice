@@ -1,6 +1,6 @@
 # Recommendation of merchants to bank's customers via latent semantic search
-## Relevant literature
-<a href="https://dl.acm.org/citation.cfm?id=1864721">Performance of recommender algorithms on top-n recommendation tasks</a>
+## Model
+Latent semantic model based on singular value decomposition (SVD)
 ## Metric
 **Precision@topK**
 
@@ -11,3 +11,5 @@ For each person in training set we know merchants that he likes. For each person
 ## To reproduce the result:
 * Clone this repo;
 * Execute `python3 training.py`
+## Relevant literature
+<a href="https://dl.acm.org/citation.cfm?id=1864721">Performance of recommender algorithms on top-n recommendation tasks</a>
