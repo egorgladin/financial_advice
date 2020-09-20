@@ -1,12 +1,12 @@
 """
-Recommendation of merchants to bank's customers via latent semantic search.
+Baseline for recommendation of merchants to bank's customers.
 
+Unpersonalized recommendations based on popularity.
 GitHub: https://github.com/egorgladin/financial_advice
 """
 
 import numpy as np
 import scipy.sparse as spsp
-import scipy.sparse.linalg as spsplin
 
 
 def train_test_split(data_matrix, nb_nonzero, test_sz):
@@ -18,23 +18,16 @@ def train_test_split(data_matrix, nb_nonzero, test_sz):
     return train_mat, test_mat
 
 
-def train_and_eval(rank, nb_favorite, train_mat, test_mat, top_k):
-    _, S, Vt = spsplin.svds(train_mat, k=rank, return_singular_vectors='vh')
+def baseline_precision(top_merchants, test_mat):
     top_k_precisions = []
     for client in test_mat:
         client_spendings = client.toarray()[0]
-        top_spendings = np.argsort(-client_spendings)[:nb_favorite]
-        correlation = Vt.T @ Vt[:, top_spendings]
-        score = correlation.sum(axis=1)
-        top_merchants = np.argsort(-score)
-        
         precision = 0.
         recommendations = 0
         for rec in top_merchants:
-            if rec not in top_spendings:
+            if client_spendings[rec] > 0:
                 recommendations += 1
-                if client_spendings[rec] > 0:
-                    precision += 1./top_k
+                precision += 1./top_k
             if recommendations == top_k:
                 break
         top_k_precisions.append(precision)
@@ -46,10 +39,12 @@ nb_nonzero = 20
 test_sz = 200
 train_mat, test_mat = train_test_split(data_matrix, nb_nonzero, test_sz)
 
-rank = 3
-nb_favorite = 5
 top_k = 3
-precision = train_and_eval(rank, nb_favorite, train_mat, test_mat, top_k)
+
+# Most popular merchants
+merchants_scores = np.squeeze(np.asarray(train_mat.sum(axis=0)))
+top_merchants = np.argsort(-merchants_scores)[:top_k]
+precision = baseline_precision(top_merchants, test_mat)
 
 print(f"Test precision @top{top_k} is {round(precision, 3)}")
 
